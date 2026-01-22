@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <title>彩頁計算器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .status {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <p>請上傳 PDF 檔案，系統將自動分析彩色與黑白頁數。</p>
+
+    <input type="file" id="file-input" accept="application/pdf" />
+    <div id="status" class="status"></div>
+    <div id="result"></div>
+
+    <canvas id="analysis-canvas" style="display:none;"></canvas>
+
+    <script>
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        document.getElementById('file-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const resultDiv = document.getElementById('result');
+            const statusDiv = document.getElementById('status');
+            resultDiv.innerHTML = "正在分析中...";
+
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+
+            let colorPages = 0;
+            let bwPages = 0;
+            const totalPages = pdf.numPages;
+
+            for (let i = 1; i <= totalPages; i++) {
+                statusDiv.innerHTML = `正在處理第 ${i} / ${totalPages} 頁...`;
+                const isColor = await checkPageIsColor(pdf, i);
+                if (isColor) colorPages++;
+                else bwPages++;
+            }
+
+            resultDiv.innerHTML = `
+                分析完成！<br>
+                總頁數：${totalPages} <br>
+                <span style="color: #e74c3c;">彩色頁數：${colorPages}</span> <br>
+                <span style="color: #7f8c8d;">黑白頁數：${bwPages}</span>
+            `;
+            statusDiv.innerHTML = "";
+        });
+
+        async function checkPageIsColor(pdf, pageNum) {
+            const page = await pdf.getPage(pageNum);
+            const viewport = page.getViewport({ scale: 0.5 }); // 使用低解析度加速分析
+            const canvas = document.getElementById('analysis-canvas');
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height).data;
+            const threshold = 15; // 容許誤差值，避免噪點干擾
+
+            // 抽樣檢查像素以提升效能 (每隔 5 個像素檢查一次)
+            for (let i = 0; i < imageData.length; i += 4 * 5) {
+                const r = imageData[i];
+                const g = imageData[i + 1];
+                const b = imageData[i + 2];
+
+                // 判斷 R, G, B 是否有顯著差異
+                if (Math.abs(r - g) > threshold || Math.abs(g - b) > threshold || Math.abs(r - b) > threshold) {
+                    return true; // 發現彩色像素
+                }
+            }
+            return false; // 整頁皆為灰階
+        }
+    </script>
+</body>
+
+</html>
