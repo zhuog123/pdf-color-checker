@@ -28,7 +28,6 @@
             padding-bottom: 15px;
         }
 
-        /* 上傳區 */
         .upload-section {
             background: #fffaf0;
             border: 3px solid #ddd;
@@ -81,37 +80,73 @@
             justify-content: space-between;
         }
 
+        /* --- 修改部分：縮圖排列與燈箱樣式 --- */
         .preview-container {
             display: flex;
-            flex-direction: column;
-            gap: 30px;
-            align-items: center;
+            flex-direction: row;
+            /* 改為橫向 */
+            gap: 20px;
+            justify-content: flex-start;
+            flex-wrap: wrap;
         }
 
         .preview-item {
-            width: 100%;
+            flex: 0 1 200px;
+            /* 限制寬度在 200px */
             text-align: center;
         }
 
         .preview-img {
             width: 100%;
-            max-width: 800px;
+            max-width: 200px;
+            /* 縮圖不要太大 */
             height: auto;
-            border: 2px solid #333;
-            border-radius: 8px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: zoom-in;
+            /* 提示可以點擊放大 */
+            transition: transform 0.2s;
+        }
+
+        .preview-img:hover {
+            transform: scale(1.03);
+            border-color: #e74c3c;
         }
 
         .page-tag {
-            margin-top: 10px;
-            font-size: 1.2em;
+            margin-top: 8px;
+            font-size: 0.9em;
             font-weight: bold;
             background: #e74c3c;
             color: #fff;
-            padding: 5px 20px;
-            border-radius: 20px;
+            padding: 3px 10px;
+            border-radius: 10px;
             display: inline-block;
         }
+
+        /* 燈箱遮罩 */
+        .lightbox-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            cursor: zoom-out;
+        }
+
+        .lightbox-img {
+            max-width: 90%;
+            max-height: 90%;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            border: 3px solid white;
+        }
+
+        /* --- 修改結束 --- */
     </style>
 </head>
 
@@ -141,9 +176,7 @@
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
 
-        // --- 拖拉上傳邏輯開始 ---
-
-        // 阻止預設行為（防止瀏覽器直接打開 PDF）
+        // 拖拉邏輯維持不變
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, e => {
                 e.preventDefault();
@@ -151,32 +184,27 @@
             }, false);
         });
 
-        // 拖入時的高亮效果
         ['dragenter', 'dragover'].forEach(eventName => {
             dropZone.addEventListener(eventName, () => {
                 dropZone.classList.add('dragover');
             }, false);
         });
 
-        // 移出或放下時取消高亮
         ['dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, () => {
                 dropZone.classList.remove('dragover');
             }, false);
         });
 
-        // 處理放下檔案
         dropZone.addEventListener('drop', (e) => {
             const files = e.dataTransfer.files;
             if (files.length > 0 && files[0].type === "application/pdf") {
-                fileInput.files = files; // 傳遞檔案
-                fileInput.dispatchEvent(new Event('change')); // 手動觸發分析
+                fileInput.files = files;
+                fileInput.dispatchEvent(new Event('change'));
             } else {
                 alert("請上傳 PDF 格式的檔案。");
             }
         });
-
-        // --- 拖拉上傳邏輯結束 ---
 
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -251,6 +279,7 @@
                 }
             }
 
+            // 為了縮圖清楚，維持一定的品質
             return { isColor, thumbData: isColor ? canvas.toDataURL('image/jpeg', 0.8) : null };
         }
 
@@ -270,17 +299,31 @@
             </div>
             <div class="preview-container">
                 <div class="preview-item">
-                    <img src="${range.startThumb}" class="preview-img">
-                    <div class="page-tag">此段「起始頁」(${range.startLabel})</div>
+                    <img src="${range.startThumb}" class="preview-img" onclick="openLightbox(this.src)">
+                    <div class="page-tag">起始頁 (${range.startLabel})</div>
                 </div>
                 ${range.startLabel !== range.endLabel ? `
                 <div class="preview-item">
-                    <img src="${range.endThumb}" class="preview-img">
-                    <div class="page-tag">此段「結束頁」(${range.endLabel})</div>
+                    <img src="${range.endThumb}" class="preview-img" onclick="openLightbox(this.src)">
+                    <div class="page-tag">結束頁 (${range.endLabel})</div>
                 </div>` : ''}
             </div>
         `;
             resultsArea.appendChild(card);
+        }
+
+        // --- 新增：燈箱功能函式 ---
+        function openLightbox(src) {
+            const overlay = document.createElement('div');
+            overlay.className = 'lightbox-overlay';
+            overlay.onclick = () => overlay.remove();
+
+            const img = document.createElement('img');
+            img.src = src;
+            img.className = 'lightbox-img';
+
+            overlay.appendChild(img);
+            document.body.appendChild(overlay);
         }
     </script>
 
