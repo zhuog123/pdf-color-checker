@@ -7,30 +7,135 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         body {
-            font-family: sans-serif;
+            font-family: "Microsoft JhengHei", sans-serif;
+            background-color: #eee;
             padding: 20px;
-            line-height: 1.6;
         }
 
-        #result {
-            margin-top: 20px;
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #f0f0f0;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+        }
+
+        /* 上傳區 */
+        .upload-section {
+            background: #fffaf0;
+            border: 3px solid #ddd;
+            padding: 40px;
+            text-align: center;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .upload-section:hover {
+            background: #fff4e0;
+            border-color: #999;
+        }
+
+        #status {
+            color: #e67e22;
             font-weight: bold;
-            color: #2c3e50;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 1.1em;
         }
 
-        .status {
-            color: #7f8c8d;
-            font-size: 0.9em;
+        .summary {
+            font-size: 1.4em;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        /* 區間卡片樣式 */
+        .range-card {
+            border: 2px solid #ddd;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 40px;
+            background: #fff;
+        }
+
+        .range-header {
+            font-size: 1.5em;
+            color: #c0392b;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* 關鍵：改為垂直排列並讓圖片寬度撐滿 */
+        .preview-container {
+            display: flex;
+            flex-direction: column;
+            /* 上下排列 */
+            gap: 30px;
+            align-items: center;
+        }
+
+        .preview-item {
+            width: 100%;
+            text-align: center;
+        }
+
+        .preview-img {
+            width: 100%;
+            /* 寬度撐滿容器 */
+            max-width: 800px;
+            /* 限制最大寬度避免過大 */
+            height: auto;
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .page-tag {
+            margin-top: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+            background: #e74c3c;
+            color: #fff;
+            padding: 5px 20px;
+            border-radius: 20px;
+            display: inline-block;
         }
     </style>
 </head>
 
 <body>
-    <p>請上傳 PDF 檔案，系統將自動分析彩色與黑白頁數。</p>
 
-    <input type="file" id="file-input" accept="application/pdf" />
-    <div id="status" class="status"></div>
-    <div id="result"></div>
+    <div class="container">
+        <div class="header">
+            <h1>彩頁計算器</h1>
+        </div>
+
+        <div class="upload-section" onclick="document.getElementById('file-input').click()">
+            <input type="file" id="file-input" accept="application/pdf" style="display:none;" />
+            <strong>點擊此處上傳 PDF 檔案</strong>
+        </div>
+
+        <div id="status"></div>
+        <div id="summary-area" class="summary" style="display:none;"></div>
+        <div id="results-area"></div>
+    </div>
 
     <canvas id="analysis-canvas" style="display:none;"></canvas>
 
@@ -42,36 +147,56 @@
             const file = e.target.files[0];
             if (!file) return;
 
-            const resultDiv = document.getElementById('result');
-            const statusDiv = document.getElementById('status');
-            resultDiv.innerHTML = "正在分析中...";
+            const status = document.getElementById('status');
+            const resultsArea = document.getElementById('results-area');
+            const summaryArea = document.getElementById('summary-area');
+
+            resultsArea.innerHTML = "";
+            summaryArea.style.display = "none";
+            status.innerHTML = "🔍 正在啟動引擎...";
 
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-
-            let colorPages = 0;
-            let bwPages = 0;
+            const labels = await pdf.getPageLabels();
             const totalPages = pdf.numPages;
 
+            let currentRange = null;
+            let totalColorCount = 0;
+
             for (let i = 1; i <= totalPages; i++) {
-                statusDiv.innerHTML = `正在處理第 ${i} / ${totalPages} 頁...`;
-                const isColor = await checkPageIsColor(pdf, i);
-                if (isColor) colorPages++;
-                else bwPages++;
+                status.innerHTML = `🛠 正在深度分析像素：第 ${i} / ${totalPages} 頁`;
+
+                const { isColor, thumbData } = await analyzePage(pdf, i);
+                const label = (labels && labels[i - 1]) ? labels[i - 1] : i.toString();
+
+                if (isColor) {
+                    totalColorCount++;
+                    if (!currentRange) {
+                        currentRange = { startLabel: label, endLabel: label, count: 1, startThumb: thumbData, endThumb: thumbData };
+                    } else {
+                        currentRange.endLabel = label;
+                        currentRange.count++;
+                        currentRange.endThumb = thumbData;
+                    }
+                } else {
+                    if (currentRange) {
+                        renderRangeCard(currentRange);
+                        currentRange = null;
+                    }
+                }
             }
 
-            resultDiv.innerHTML = `
-                分析完成！<br>
-                總頁數：${totalPages} <br>
-                <span style="color: #e74c3c;">彩色頁數：${colorPages}</span> <br>
-                <span style="color: #7f8c8d;">黑白頁數：${bwPages}</span>
-            `;
-            statusDiv.innerHTML = "";
+            if (currentRange) renderRangeCard(currentRange);
+
+            status.innerHTML = "✨ 分析任務已完成！";
+            summaryArea.style.display = "block";
+            summaryArea.innerHTML = `檔案總計：${totalPages} 頁 | 彩色部分共：${totalColorCount} 頁`;
         });
 
-        async function checkPageIsColor(pdf, pageNum) {
+        async function analyzePage(pdf, pageNum) {
             const page = await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale: 0.5 }); // 使用低解析度加速分析
+            // 設定 scale 為 1.0 以獲取高清大圖
+            const viewport = page.getViewport({ scale: 1.0 });
             const canvas = document.getElementById('analysis-canvas');
             const context = canvas.getContext('2d', { willReadFrequently: true });
 
@@ -81,22 +206,52 @@
             await page.render({ canvasContext: context, viewport: viewport }).promise;
 
             const imageData = context.getImageData(0, 0, canvas.width, canvas.height).data;
-            const threshold = 15; // 容許誤差值，避免噪點干擾 
+            const threshold = 18;
+            let isColor = false;
 
-            // 抽樣檢查像素以提升效能 (每隔 5 個像素檢查一次)
-            for (let i = 0; i < imageData.length; i += 4 * 5) {
-                const r = imageData[i];
-                const g = imageData[i + 1];
-                const b = imageData[i + 2];
-
-                // 判斷 R, G, B 是否有顯著差異
-                if (Math.abs(r - g) > threshold || Math.abs(g - b) > threshold || Math.abs(r - b) > threshold) {
-                    return true; // 發現彩色像素
+            // 色彩偵測
+            for (let i = 0; i < imageData.length; i += 4 * 15) {
+                if (Math.abs(imageData[i] - imageData[i + 1]) > threshold ||
+                    Math.abs(imageData[i + 1] - imageData[i + 2]) > threshold) {
+                    isColor = true;
+                    break;
                 }
             }
-            return false; // 整頁皆為灰階
+
+            // 使用 jpeg 0.8 品質，兼顧大圖清晰度與記憶體
+            return { isColor, thumbData: isColor ? canvas.toDataURL('image/jpeg', 0.8) : null };
+        }
+
+        function renderRangeCard(range) {
+            const resultsArea = document.getElementById('results-area');
+            const card = document.createElement('div');
+            card.className = 'range-card';
+
+            const displayLabel = range.startLabel === range.endLabel ?
+                `頁碼：${range.startLabel}` :
+                `範圍：${range.startLabel} ～ ${range.endLabel}`;
+
+            card.innerHTML = `
+            <div class="range-header">
+                <span>📍 ${displayLabel}</span>
+                <span>此段共 ${range.count} 頁</span>
+            </div>
+            <div class="preview-container">
+                <div class="preview-item">
+                    <img src="${range.startThumb}" class="preview-img">
+                    <div class="page-tag">此段「起始頁」(${range.startLabel})</div>
+                </div>
+                ${range.startLabel !== range.endLabel ? `
+                <div class="preview-item">
+                    <img src="${range.endThumb}" class="preview-img">
+                    <div class="page-tag">此段「結束頁」(${range.endLabel})</div>
+                </div>` : ''}
+            </div>
+        `;
+            resultsArea.appendChild(card);
         }
     </script>
+
 </body>
 
 </html>
