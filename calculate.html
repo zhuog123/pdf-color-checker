@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>彩頁計算器</title>
+    <title>彩頁計算器 - 支援拖拉版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         body {
@@ -62,7 +62,6 @@
             text-align: center;
         }
 
-        /* 區間卡片樣式 */
         .range-card {
             border: 2px solid #ddd;
             border-radius: 15px;
@@ -82,11 +81,9 @@
             justify-content: space-between;
         }
 
-        /* 關鍵：改為垂直排列並讓圖片寬度撐滿 */
         .preview-container {
             display: flex;
             flex-direction: column;
-            /* 上下排列 */
             gap: 30px;
             align-items: center;
         }
@@ -98,9 +95,7 @@
 
         .preview-img {
             width: 100%;
-            /* 寬度撐滿容器 */
             max-width: 800px;
-            /* 限制最大寬度避免過大 */
             height: auto;
             border: 2px solid #333;
             border-radius: 8px;
@@ -127,9 +122,9 @@
             <h1>彩頁計算器</h1>
         </div>
 
-        <div class="upload-section" onclick="document.getElementById('file-input').click()">
+        <div class="upload-section" id="drop-zone" onclick="document.getElementById('file-input').click()">
             <input type="file" id="file-input" accept="application/pdf" style="display:none;" />
-            <strong>點擊此處上傳 PDF 檔案</strong>
+            <strong>點擊此處或將 PDF 拖曳至此處上傳</strong>
         </div>
 
         <div id="status"></div>
@@ -143,7 +138,47 @@
         const pdfjsLib = window['pdfjs-dist/build/pdf'];
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-        document.getElementById('file-input').addEventListener('change', async (e) => {
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        // --- 拖拉上傳邏輯開始 ---
+
+        // 阻止預設行為（防止瀏覽器直接打開 PDF）
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        // 拖入時的高亮效果
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('dragover');
+            }, false);
+        });
+
+        // 移出或放下時取消高亮
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        // 處理放下檔案
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === "application/pdf") {
+                fileInput.files = files; // 傳遞檔案
+                fileInput.dispatchEvent(new Event('change')); // 手動觸發分析
+            } else {
+                alert("請上傳 PDF 格式的檔案。");
+            }
+        });
+
+        // --- 拖拉上傳邏輯結束 ---
+
+        fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
@@ -153,7 +188,7 @@
 
             resultsArea.innerHTML = "";
             summaryArea.style.display = "none";
-            status.innerHTML = "🔍 正在啟動引擎...";
+            status.innerHTML = "🔍 正在啟動分析引擎...";
 
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
@@ -164,7 +199,7 @@
             let totalColorCount = 0;
 
             for (let i = 1; i <= totalPages; i++) {
-                status.innerHTML = `🛠 正在深度分析像素：第 ${i} / ${totalPages} 頁`;
+                status.innerHTML = `🛠 正在分析頁面像素：第 ${i} / ${totalPages} 頁`;
 
                 const { isColor, thumbData } = await analyzePage(pdf, i);
                 const label = (labels && labels[i - 1]) ? labels[i - 1] : i.toString();
@@ -188,14 +223,13 @@
 
             if (currentRange) renderRangeCard(currentRange);
 
-            status.innerHTML = "✨ 分析任務已完成！";
+            status.innerHTML = "✨ 分析完成！";
             summaryArea.style.display = "block";
             summaryArea.innerHTML = `檔案總計：${totalPages} 頁 | 彩色部分共：${totalColorCount} 頁`;
         });
 
         async function analyzePage(pdf, pageNum) {
             const page = await pdf.getPage(pageNum);
-            // 設定 scale 為 1.0 以獲取高清大圖
             const viewport = page.getViewport({ scale: 1.0 });
             const canvas = document.getElementById('analysis-canvas');
             const context = canvas.getContext('2d', { willReadFrequently: true });
@@ -209,7 +243,6 @@
             const threshold = 18;
             let isColor = false;
 
-            // 色彩偵測
             for (let i = 0; i < imageData.length; i += 4 * 15) {
                 if (Math.abs(imageData[i] - imageData[i + 1]) > threshold ||
                     Math.abs(imageData[i + 1] - imageData[i + 2]) > threshold) {
@@ -218,7 +251,6 @@
                 }
             }
 
-            // 使用 jpeg 0.8 品質，兼顧大圖清晰度與記憶體
             return { isColor, thumbData: isColor ? canvas.toDataURL('image/jpeg', 0.8) : null };
         }
 
