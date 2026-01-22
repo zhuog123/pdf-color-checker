@@ -81,7 +81,7 @@
             await page.render({ canvasContext: context, viewport: viewport }).promise;
 
             const imageData = context.getImageData(0, 0, canvas.width, canvas.height).data;
-            const threshold = 15; // 容許誤差值，避免噪點干擾
+            const threshold = 15; // 容許誤差值，避免噪點干擾 
 
             // 抽樣檢查像素以提升效能 (每隔 5 個像素檢查一次)
             for (let i = 0; i < imageData.length; i += 4 * 5) {
