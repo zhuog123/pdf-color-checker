@@ -80,11 +80,9 @@
             justify-content: space-between;
         }
 
-        /* --- 修改部分：縮圖排列與燈箱樣式 --- */
         .preview-container {
             display: flex;
             flex-direction: row;
-            /* 改為橫向 */
             gap: 20px;
             justify-content: flex-start;
             flex-wrap: wrap;
@@ -92,19 +90,16 @@
 
         .preview-item {
             flex: 0 1 200px;
-            /* 限制寬度在 200px */
             text-align: center;
         }
 
         .preview-img {
             width: 100%;
             max-width: 200px;
-            /* 縮圖不要太大 */
             height: auto;
             border: 1px solid #ccc;
             border-radius: 5px;
             cursor: zoom-in;
-            /* 提示可以點擊放大 */
             transition: transform 0.2s;
         }
 
@@ -145,8 +140,6 @@
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
             border: 3px solid white;
         }
-
-        /* --- 修改結束 --- */
     </style>
 </head>
 
@@ -184,28 +177,19 @@
             }, false);
         });
 
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => {
-                dropZone.classList.add('dragover');
-            }, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => {
-                dropZone.classList.remove('dragover');
-            }, false);
-        });
-
         dropZone.addEventListener('drop', (e) => {
             const files = e.dataTransfer.files;
-            if (files.length > 0 && files[0].type === "application/pdf") {
-                fileInput.files = files;
-                fileInput.dispatchEvent(new Event('change'));
-            } else {
-                alert("請上傳 PDF 格式的檔案。");
+            if (files.length > 0) {
+                const file = files[0];
+                // 檢查 MIME 或 副檔名
+                if (file.type === "application/pdf" || file.name.toLowerCase().endsWith('.pdf')) {
+                    fileInput.files = files;
+                    fileInput.dispatchEvent(new Event('change'));
+                } else {
+                    alert("請上傳 PDF 格式的檔案。");
+                }
             }
         });
-
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -214,46 +198,58 @@
             const resultsArea = document.getElementById('results-area');
             const summaryArea = document.getElementById('summary-area');
 
+            // 初始化 UI
             resultsArea.innerHTML = "";
             summaryArea.style.display = "none";
-            status.innerHTML = "🔍 正在啟動分析引擎...";
+            status.innerHTML = "正在檢查檔案內容...";
 
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-            const labels = await pdf.getPageLabels();
-            const totalPages = pdf.numPages;
+            try {
+                const arrayBuffer = await file.arrayBuffer();
 
-            let currentRange = null;
-            let totalColorCount = 0;
+                // 嘗試讀取 PDF，如果是非 PDF 改名，這行會出錯並跳到 catch
+                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                const pdf = await loadingTask.promise;
 
-            for (let i = 1; i <= totalPages; i++) {
-                status.innerHTML = `🛠 正在分析頁面像素：第 ${i} / ${totalPages} 頁`;
+                const labels = await pdf.getPageLabels();
+                const totalPages = pdf.numPages;
 
-                const { isColor, thumbData } = await analyzePage(pdf, i);
-                const label = (labels && labels[i - 1]) ? labels[i - 1] : i.toString();
+                let currentRange = null;
+                let totalColorCount = 0;
 
-                if (isColor) {
-                    totalColorCount++;
-                    if (!currentRange) {
-                        currentRange = { startLabel: label, endLabel: label, count: 1, startThumb: thumbData, endThumb: thumbData };
+                for (let i = 1; i <= totalPages; i++) {
+                    status.innerHTML = `正在分析頁面像素：第 ${i} / ${totalPages} 頁`;
+
+                    const { isColor, thumbData } = await analyzePage(pdf, i);
+                    const label = (labels && labels[i - 1]) ? labels[i - 1] : i.toString();
+
+                    if (isColor) {
+                        totalColorCount++;
+                        if (!currentRange) {
+                            currentRange = { startLabel: label, endLabel: label, count: 1, startThumb: thumbData, endThumb: thumbData };
+                        } else {
+                            currentRange.endLabel = label;
+                            currentRange.count++;
+                            currentRange.endThumb = thumbData;
+                        }
                     } else {
-                        currentRange.endLabel = label;
-                        currentRange.count++;
-                        currentRange.endThumb = thumbData;
-                    }
-                } else {
-                    if (currentRange) {
-                        renderRangeCard(currentRange);
-                        currentRange = null;
+                        if (currentRange) {
+                            renderRangeCard(currentRange);
+                            currentRange = null;
+                        }
                     }
                 }
+
+                if (currentRange) renderRangeCard(currentRange);
+
+                status.innerHTML = "分析完成";
+                summaryArea.style.display = "block";
+                summaryArea.innerHTML = `檔案總計：${totalPages} 頁 | 彩色部分共：${totalColorCount} 頁`;
+
+            } catch (err) {
+                console.error("PDF 解析錯誤:", err);
+                status.innerHTML = "<span style='color:red;'>錯誤：這不是一個有效的 PDF 檔案</span>";
+                alert("解析失敗，請上傳正確格式的檔案");
             }
-
-            if (currentRange) renderRangeCard(currentRange);
-
-            status.innerHTML = "✨ 分析完成！";
-            summaryArea.style.display = "block";
-            summaryArea.innerHTML = `檔案總計：${totalPages} 頁 | 彩色部分共：${totalColorCount} 頁`;
         });
 
         async function analyzePage(pdf, pageNum) {
@@ -279,7 +275,6 @@
                 }
             }
 
-            // 為了縮圖清楚，維持一定的品質
             return { isColor, thumbData: isColor ? canvas.toDataURL('image/jpeg', 0.8) : null };
         }
 
@@ -294,7 +289,7 @@
 
             card.innerHTML = `
             <div class="range-header">
-                <span>📍 ${displayLabel}</span>
+                <span>${displayLabel}</span>
                 <span>此段共 ${range.count} 頁</span>
             </div>
             <div class="preview-container">
@@ -312,7 +307,7 @@
             resultsArea.appendChild(card);
         }
 
-        // --- 新增：燈箱功能函式 ---
+        // 燈箱功能
         function openLightbox(src) {
             const overlay = document.createElement('div');
             overlay.className = 'lightbox-overlay';
