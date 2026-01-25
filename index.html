@@ -382,12 +382,12 @@
                 <div class="preview-container">
                     <div class="preview-item">
                         <img src="${sImg}" class="preview-img" onclick="openLightbox(${allColorPages.length})">
-                        <div class="page-tag">起始範圍 ${sLabel}</div>
+                        <div class="page-tag">起始 ${sLabel}</div>
                     </div>
                     ${pages.length > 1 ? `
                     <div class="preview-item">
                         <img src="${eImg}" class="preview-img" onclick="openLightbox(${allColorPages.length + 1})">
-                        <div class="page-tag">最末範圍 ${eLabel}</div>
+                        <div class="page-tag">最末 ${eLabel}</div>
                     </div>` : ''}
                 </div>`;
             resultsArea.appendChild(card);
@@ -420,7 +420,7 @@
 
             // 判斷是否還在計算中
             const groupInfo = totalGroups === 0
-                ? `群組 ${data.groupID} / 計算中...`
+                ? `群組 ${data.groupID} / <span class="dimmed">計算中...</span>`
                 : `群組 ${data.groupID} / ${totalGroups}`;
 
             document.getElementById('lb-header').innerHTML = `${groupInfo} | <span class="${startClass}">起始頁</span> | <span class="${endClass}">最末頁</span>`;
