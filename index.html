@@ -10,6 +10,7 @@
             font-family: "Microsoft JhengHei", sans-serif;
             background-color: #eee;
             padding: 20px;
+            margin: 0;
         }
 
         .container {
@@ -35,12 +36,13 @@
             text-align: center;
             border-radius: 12px;
             cursor: pointer;
-            transition: 0.3s;
+            transition: all 0.2s ease;
         }
 
-        .upload-section:hover {
+        .upload-section.dragover {
+            border: 3px dashed #e67e22;
             background: #fff4e0;
-            border-color: #999;
+            transform: scale(1.01);
         }
 
         #status {
@@ -100,12 +102,6 @@
             border: 1px solid #ccc;
             border-radius: 5px;
             cursor: zoom-in;
-            transition: transform 0.2s;
-        }
-
-        .preview-img:hover {
-            transform: scale(1.03);
-            border-color: #e74c3c;
         }
 
         .page-tag {
@@ -119,26 +115,145 @@
             display: inline-block;
         }
 
-        /* 燈箱遮罩 */
         .lightbox-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            z-index: 1000;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            width: 45px;
+            height: 45px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1005;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
-            cursor: zoom-out;
+        }
+
+        .lb-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .lb-header {
+            background-color: #fffaf0;
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: #ffcc00;
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 30px;
+        }
+
+        .lb-header span.dimmed {
+            color: #666;
+            /* 灰掉的文字 */
+        }
+
+        .lb-main-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 70vh;
+            position: relative;
         }
 
         .lightbox-img {
             max-width: 90%;
-            max-height: 90%;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-            border: 3px solid white;
+            height: 100%;
+            object-fit: contain;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.4);
+            border: 4px solid white;
+            background: #222;
+        }
+
+        .circle-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            z-index: 1002;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-l {
+            left: 40px;
+        }
+
+        .btn-r {
+            right: 40px;
+        }
+
+        .circle-btn:disabled,
+        .group-btn:disabled {
+            color: gray;
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .lb-footer {
+            margin-top: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        /* 跳轉按鈕左右定位 */
+        .group-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 24px;
+            position: absolute;
+            bottom: 40px;
+        }
+
+        .btn-g-l {
+            left: 40px;
+        }
+
+        .btn-g-r {
+            right: 40px;
+        }
+
+        .hint-text {
+            color: #aaa;
+            font-size: 14px;
+            text-align: center;
+            line-height: 1.6;
         }
     </style>
 </head>
@@ -160,6 +275,25 @@
         <div id="results-area"></div>
     </div>
 
+    <div id="lightbox" class="lightbox-overlay" onclick="closeLightbox(event)">
+        <button class="close-btn" onclick="closeLightbox(event, true)">✕</button>
+        <div class="lb-wrapper">
+            <div id="lb-header" class="lb-header"></div>
+
+            <div class="lb-main-area">
+                <button id="btn-prev" class="circle-btn btn-l" onclick="changeImage(-1, event)">❮</button>
+                <img id="lightbox-img" class="lightbox-img" onclick="event.stopPropagation()">
+                <button id="btn-next" class="circle-btn btn-r" onclick="changeImage(1, event)">❯</button>
+            </div>
+
+            <div class="lb-footer" onclick="event.stopPropagation()">
+                <button id="btn-group-prev" class="group-btn btn-g-l" onclick="jumpGroup(-1)">⬅</button>
+                <div class="hint-text">← → 方向鍵翻頁<br>Shift + ← → 方向鍵跳轉群組</div>
+                <button id="btn-group-next" class="group-btn btn-g-r" onclick="jumpGroup(1)">⮕</button>
+            </div>
+        </div>
+    </div>
+
     <canvas id="analysis-canvas" style="display:none;"></canvas>
 
     <script>
@@ -168,160 +302,217 @@
 
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
+        const resultsArea = document.getElementById('results-area');
+        const summaryArea = document.getElementById('summary-area');
+        const status = document.getElementById('status');
 
-        // 拖拉邏輯維持不變
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, e => {
-                e.preventDefault();
-                e.stopPropagation();
-            }, false);
-        });
+        let allColorPages = [];
+        let currentIdx = 0;
+        let totalGroups = 0;
 
-        dropZone.addEventListener('drop', (e) => {
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                const file = files[0];
-                // 檢查 MIME 或 副檔名
-                if (file.type === "application/pdf" || file.name.toLowerCase().endsWith('.pdf')) {
-                    fileInput.files = files;
-                    fileInput.dispatchEvent(new Event('change'));
-                } else {
-                    alert("請上傳 PDF 格式的檔案。");
-                }
-            }
-        });
+        ['dragenter', 'dragover'].forEach(name => dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); }));
+        ['dragleave', 'drop'].forEach(name => dropZone.addEventListener(name, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); }));
+        dropZone.addEventListener('drop', (e) => { fileInput.files = e.dataTransfer.files; fileInput.dispatchEvent(new Event('change')); });
+
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-
-            const status = document.getElementById('status');
-            const resultsArea = document.getElementById('results-area');
-            const summaryArea = document.getElementById('summary-area');
-
-            // 初始化 UI
-            resultsArea.innerHTML = "";
-            summaryArea.style.display = "none";
-            status.innerHTML = "正在檢查檔案內容...";
+            resultsArea.innerHTML = ""; summaryArea.style.display = "none"; status.innerHTML = "分析中...";
+            allColorPages = [];
 
             try {
                 const arrayBuffer = await file.arrayBuffer();
-
-                // 嘗試讀取 PDF，如果是非 PDF 改名，這行會出錯並跳到 catch
-                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-                const pdf = await loadingTask.promise;
-
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                 const labels = await pdf.getPageLabels();
                 const totalPages = pdf.numPages;
 
-                let currentRange = null;
-                let totalColorCount = 0;
+                let tempGroupData = [];
+                let groupCount = 0;
 
                 for (let i = 1; i <= totalPages; i++) {
-                    status.innerHTML = `正在分析頁面像素：第 ${i} / ${totalPages} 頁`;
-
-                    const { isColor, thumbData } = await analyzePage(pdf, i);
+                    status.innerHTML = `正在分析：${i} / ${totalPages}`;
+                    const pageData = await analyzePage(pdf, i);
                     const label = (labels && labels[i - 1]) ? labels[i - 1] : i.toString();
 
-                    if (isColor) {
-                        totalColorCount++;
-                        if (!currentRange) {
-                            currentRange = { startLabel: label, endLabel: label, count: 1, startThumb: thumbData, endThumb: thumbData };
-                        } else {
-                            currentRange.endLabel = label;
-                            currentRange.count++;
-                            currentRange.endThumb = thumbData;
-                        }
+                    if (pageData.isColor) {
+                        tempGroupData.push({ src: pageData.thumbData, label: label });
                     } else {
-                        if (currentRange) {
-                            renderRangeCard(currentRange);
-                            currentRange = null;
+                        if (tempGroupData.length > 0) {
+                            groupCount++;
+                            processGroup(tempGroupData, groupCount);
+                            tempGroupData = [];
                         }
                     }
+                    if (i % 5 === 0) await new Promise(r => setTimeout(r, 5));
                 }
+                if (tempGroupData.length > 0) { groupCount++; processGroup(tempGroupData, groupCount); }
 
-                if (currentRange) renderRangeCard(currentRange);
-
+                totalGroups = groupCount;
                 status.innerHTML = "分析完成";
                 summaryArea.style.display = "block";
-                summaryArea.innerHTML = `檔案總計：${totalPages} 頁 | 彩色部分共：${totalColorCount} 頁`;
-
-            } catch (err) {
-                console.error("PDF 解析錯誤:", err);
-                status.innerHTML = "<span style='color:red;'>錯誤：這不是一個有效的 PDF 檔案</span>";
-                alert("解析失敗，請上傳正確格式的檔案");
-            }
+                summaryArea.innerHTML = `共有 ${totalGroups} 組彩色頁面`;
+            } catch (err) { status.innerHTML = "解析失敗"; }
         });
 
         async function analyzePage(pdf, pageNum) {
             const page = await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale: 1.0 });
+            const vp = page.getViewport({ scale: 1.0 });
             const canvas = document.getElementById('analysis-canvas');
-            const context = canvas.getContext('2d', { willReadFrequently: true });
-
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-
-            await page.render({ canvasContext: context, viewport: viewport }).promise;
-
-            const imageData = context.getImageData(0, 0, canvas.width, canvas.height).data;
-            const threshold = 18;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            canvas.height = vp.height; canvas.width = vp.width;
+            await page.render({ canvasContext: ctx, viewport: vp }).promise;
+            const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             let isColor = false;
-
-            for (let i = 0; i < imageData.length; i += 4 * 15) {
-                if (Math.abs(imageData[i] - imageData[i + 1]) > threshold ||
-                    Math.abs(imageData[i + 1] - imageData[i + 2]) > threshold) {
-                    isColor = true;
-                    break;
-                }
+            for (let i = 0; i < data.length; i += 60) {
+                if (Math.abs(data[i] - data[i + 1]) > 18 || Math.abs(data[i + 1] - data[i + 2]) > 18) { isColor = true; break; }
             }
-
             return { isColor, thumbData: isColor ? canvas.toDataURL('image/jpeg', 0.8) : null };
         }
 
-        function renderRangeCard(range) {
-            const resultsArea = document.getElementById('results-area');
+        function processGroup(pages, groupID) {
             const card = document.createElement('div');
             card.className = 'range-card';
-
-            const displayLabel = range.startLabel === range.endLabel ?
-                `頁碼：${range.startLabel}` :
-                `範圍：${range.startLabel} ～ ${range.endLabel}`;
+            const sImg = pages[0].src;
+            const eImg = pages[pages.length - 1].src;
+            const sLabel = pages[0].label;
+            const eLabel = pages[pages.length - 1].label;
 
             card.innerHTML = `
-            <div class="range-header">
-                <span>${displayLabel}</span>
-                <span>此段共 ${range.count} 頁</span>
-            </div>
-            <div class="preview-container">
-                <div class="preview-item">
-                    <img src="${range.startThumb}" class="preview-img" onclick="openLightbox(this.src)">
-                    <div class="page-tag">起始頁 (${range.startLabel})</div>
-                </div>
-                ${range.startLabel !== range.endLabel ? `
-                <div class="preview-item">
-                    <img src="${range.endThumb}" class="preview-img" onclick="openLightbox(this.src)">
-                    <div class="page-tag">結束頁 (${range.endLabel})</div>
-                </div>` : ''}
-            </div>
-        `;
+                <div class="range-header"><span>範圍：${sLabel} ~ ${eLabel}</span><span>第 ${groupID} 組</span></div>
+                <div class="preview-container">
+                    <div class="preview-item">
+                        <img src="${sImg}" class="preview-img" onclick="openLightbox(${allColorPages.length})">
+                        <div class="page-tag">起始範圍 ${sLabel}</div>
+                    </div>
+                    ${pages.length > 1 ? `
+                    <div class="preview-item">
+                        <img src="${eImg}" class="preview-img" onclick="openLightbox(${allColorPages.length + 1})">
+                        <div class="page-tag">最末範圍 ${eLabel}</div>
+                    </div>` : ''}
+                </div>`;
             resultsArea.appendChild(card);
+
+            allColorPages.push({ src: sImg, label: sLabel, groupID, isEnd: false, isSingle: pages.length === 1 });
+            if (pages.length > 1) {
+                allColorPages.push({ src: eImg, label: eLabel, groupID, isEnd: true, isSingle: false });
+            }
         }
 
-        // 燈箱功能
-        function openLightbox(src) {
-            const overlay = document.createElement('div');
-            overlay.className = 'lightbox-overlay';
-            overlay.onclick = () => overlay.remove();
-
-            const img = document.createElement('img');
-            img.src = src;
-            img.className = 'lightbox-img';
-
-            overlay.appendChild(img);
-            document.body.appendChild(overlay);
+        function openLightbox(idx) {
+            currentIdx = idx;
+            updateLightbox();
+            document.getElementById('lightbox').style.display = 'block';
         }
+
+        function closeLightbox(e, force = false) {
+            if (force || e.target.id === 'lightbox' || e.target.className === 'lb-wrapper' || e.target.className === 'lb-main-area') {
+                document.getElementById('lightbox').style.display = 'none';
+            }
+        }
+
+        function updateLightbox() {
+            const data = allColorPages[currentIdx];
+            document.getElementById('lightbox-img').src = data.src;
+
+            // 處理頭部文字顯示與反灰
+            let startClass = (data.isEnd && !data.isSingle) ? 'dimmed' : '';
+            let endClass = (!data.isEnd && !data.isSingle) ? 'dimmed' : '';
+
+            // 判斷是否還在計算中
+            const groupInfo = totalGroups === 0
+                ? `群組 ${data.groupID} / 計算中...`
+                : `群組 ${data.groupID} / ${totalGroups}`;
+
+            document.getElementById('lb-header').innerHTML = `${groupInfo} | <span class="${startClass}">起始頁</span> | <span class="${endClass}">最末頁</span>`;
+
+            const hasOtherInGroup = (currentIdx > 0 && allColorPages[currentIdx - 1].groupID === data.groupID) ||
+                (currentIdx < allColorPages.length - 1 && allColorPages[currentIdx + 1].groupID === data.groupID);
+
+            document.getElementById('btn-prev').disabled = !hasOtherInGroup || (currentIdx > 0 && allColorPages[currentIdx - 1].groupID !== data.groupID);
+            document.getElementById('btn-next').disabled = !hasOtherInGroup || (currentIdx < allColorPages.length - 1 && allColorPages[currentIdx + 1].groupID !== data.groupID);
+
+            // 跳轉按鈕反灰邏輯
+            document.getElementById('btn-group-prev').disabled = (data.groupID === 1);
+            document.getElementById('btn-group-next').disabled = (data.groupID === totalGroups);
+        }
+
+        function changeImage(step, e) {
+            if (e) e.stopPropagation();
+            const data = allColorPages[currentIdx];
+            const nextIdx = currentIdx + step;
+            if (nextIdx >= 0 && nextIdx < allColorPages.length && allColorPages[nextIdx].groupID === data.groupID) {
+                currentIdx = nextIdx;
+                updateLightbox();
+            }
+        }
+
+        function jumpGroup(direction) {
+            const curG = allColorPages[currentIdx].groupID;
+            const targetG = curG + direction;
+            const targetIdx = allColorPages.findIndex(p => p.groupID === targetG);
+            if (targetIdx !== -1) {
+                currentIdx = targetIdx;
+                updateLightbox();
+            }
+        }
+
+        document.addEventListener('click', function (e) {
+            if (e.target.id === 'lightbox-img' && e.button === 2) {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    jumpGroup(1);  // Shift + 右鍵：下一組
+                } else {
+                    jumpGroup(-1); // 右鍵：上一組
+                }
+            }
+        }, true);
+
+        let keyStates = {};
+        let actionTimeout = null;
+
+        document.addEventListener('keydown', (e) => {
+            keyStates[e.key] = true;
+
+            if (document.getElementById('lightbox').style.display !== 'block') return;
+
+            // 任何鍵按下都檢查是否同時按著方向鍵和 Shift
+            if (keyStates['ArrowRight'] || keyStates['ArrowLeft']) {
+                if (e.repeat) return;
+
+                // 清除之前的延遲
+                if (actionTimeout) clearTimeout(actionTimeout);
+
+                // 延遲執行，讓兩個鍵都有機會被記錄
+                actionTimeout = setTimeout(() => {
+                    const direction = keyStates['ArrowRight'] ? 1 : -1;
+
+                    if (keyStates['Shift']) {
+                        jumpGroup(direction);
+                    } else {
+                        changeImage(direction);
+                    }
+
+                    actionTimeout = null;
+                }, 50);
+            }
+
+            if (e.key === 'Escape') {
+                document.getElementById('lightbox').style.display = 'none';
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keyStates[e.key] = false;
+
+            // 清除未執行的動作
+            if (actionTimeout) {
+                clearTimeout(actionTimeout);
+                actionTimeout = null;
+            }
+        });
+
+
     </script>
-
 </body>
 
 </html>
